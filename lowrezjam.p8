@@ -28,9 +28,13 @@ end
 game={}
 
 function game.init()
+  game.bullet_pool=bullet_pool{
+  }
   game.player=player{
     -- note that vec3_to_screen_space() defines the origin:
     pos=vec3(0,0,0),
+
+    bullet_pool=game.bullet_pool,
   }
   game.level=level{
   }
@@ -40,6 +44,10 @@ function game.init()
 end
 
 function game.update()
+  bullet_pool_update(game.bullet_pool)
+
+  -- update player after bullet pool,
+  -- as we don't want to update bullets when first instantiated:
   player_update(game.player)
 
   -- update camera after player,
@@ -55,18 +63,93 @@ function game.draw()
   cam_draw(game.cam)
     level_draw(game.level)
     player_draw(game.player)
+    bullet_pool_draw(game.bullet_pool)
   camera()
 
   -- debug:
   cursor()
   color(6)
   print('cpu:'..stat(1))
+  print('bullets:'..#game.bullet_pool.bullets)
   if(game.player.z_action_held)print('shooting')
+  if(#game.bullet_pool.bullets>0)then
+    local first=game.bullet_pool.bullets[1]
+    print(first.pos.x .. ',' .. first.pos.y .. ',' .. first.pos.z)
+  end
+end
+
+-- bullet pool entity:
+
+function bullet_pool(o)
+  return {
+    bullets={},
+  }
+end
+
+function bullet_pool_update(b)
+  for bullet in all(b.bullets) do
+    bullet_update(bullet)
+  end
+end
+
+function bullet_pool_draw(b)
+  for bullet in all(b.bullets) do
+    bullet_draw(bullet)
+  end
+end
+
+function bullet_pool_add(bpool, x, y, z, ax, ay, az)
+  -- construct bullet:
+  local b=bullet()
+  b.pos.x=x
+  b.pos.y=y
+  b.pos.z=z
+  b.acc.x=ax
+  b.acc.y=ay
+  b.acc.z=az
+
+  -- add to pool:
+  add(bpool.bullets,b)
+end
+
+-- bullet entity:
+
+function bullet(o)
+  return {
+    pos=vec3(),
+    vel=vec3(),
+    acc=vec3(),
+    w=2,
+    h=2,
+  }
+end
+
+function bullet_update(b)
+  -- update velocity:
+  b.vel=vec3_add(b.vel,vec3_mul(b.acc,1/60))
+
+  -- update position:
+  b.pos=vec3_add(b.pos,vec3_mul(b.vel,1/60))
+end
+
+function bullet_draw(b)
+  local x,y=vec3_to_screen_space(b.pos)
+  rectfill(
+    x,
+    y,
+    x+b.w-1,
+    y+b.h-1,
+    7)
 end
 
 -- player entity:
 
 function player(o)
+  -- preconditions:
+  assert(o.bullet_pool~=nil)
+  assert(o.bullet_pool.bullets~=nil)
+
+  -- construct object:
   return {
     pos=assert(o.pos~=nil) and o.pos,
     vel=vec3(),
@@ -82,6 +165,7 @@ function player(o)
     last_facing_dir='right',
 
     z_action_held=false,
+    bullet_pool=assert(o.bullet_pool~=nil) and o.bullet_pool,
   }
 end
 
@@ -109,6 +193,20 @@ function player_update(p)
 
   -- detect shots fired:
   p.z_action_held=z_action
+
+  -- fire bullets:
+  if z_action then
+    assert(p.bullet_pool~=nil)
+    assert(p.bullet_pool.bullets~=nil)
+    bullet_pool_add(
+      p.bullet_pool,
+      p.pos.x,
+      p.pos.y+3,
+      p.pos.z,
+      p.last_facing_dir=='left' and -5 or 5,
+      0,
+      0)
+  end
 
   -- update velocity:
   p.vel=vec3_damp(p.vel,p.acc,0.001)
