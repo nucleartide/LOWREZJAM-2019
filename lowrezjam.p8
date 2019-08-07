@@ -61,6 +61,7 @@ function game.draw()
   cursor()
   color(6)
   print('cpu:'..stat(1))
+  if(game.player.z_action_held)print('shooting')
 end
 
 -- player entity:
@@ -75,6 +76,12 @@ function player(o)
 
     -- in pixels per second:
     speed=50,
+
+    -- player faces right initially.
+    -- this value can be 'left' or 'right':
+    last_facing_dir='right',
+
+    z_action_held=false,
   }
 end
 
@@ -82,6 +89,7 @@ function player_update(p)
   -- grab inputs:
   local left=btn(button.left)
   local right=btn(button.right)
+  local z_action=btn(button.z)
 
   -- update acceleration:
   if left and not right then
@@ -91,6 +99,16 @@ function player_update(p)
   else
     p.acc.x=0
   end
+
+  -- update last-facing direction:
+  if p.acc.x<0 then
+    p.last_facing_dir='left'
+  elseif p.acc.x>0 then
+    p.last_facing_dir='right'
+  end
+
+  -- detect shots fired:
+  p.z_action_held=z_action
 
   -- update velocity:
   p.vel=vec3_damp(p.vel,p.acc,0.001)
