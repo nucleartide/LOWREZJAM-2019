@@ -9,6 +9,7 @@ __lua__
   todo:
 
   [ ] parallax
+  [ ] cleanup for asserts
 
 ]]
 
