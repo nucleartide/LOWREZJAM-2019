@@ -1,67 +1,69 @@
 pico-8 cartridge // http://www.pico-8.com
 version 18
 __lua__
--- (title goes here)
+-- lowrezjam
 -- by @nucleartide
 
--- current state:
+--[[
+
+  todo:
+
+  [ ] parallax
+
+]]
+
+-- initial state:
 
 current_state={
   state=nil,
 }
 
--- game loop:
-
 function _init()
+  poke(0x5f2c,3)
   transition{to=game}
 end
+
+-- game state:
 
 game={}
 
 function game.init()
-  poke(0x5f2c,3)
   game.player=player{
-    pos=vec3(0, 5, 0),
-  }
-  game.cam=cam{
-    player=game.player,
+    -- note that vec3_to_screen_space() defines the origin:
+    pos=vec3(0,0,0),
   }
   game.level=level{
-    cam=game.cam,
+  }
+  game.cam=cam{
     player=game.player,
   }
 end
 
 function game.update()
-  -- note: order is important here
   player_update(game.player)
+
+  -- update camera after player,
+  -- as camera's position depends on player's:
   cam_update(game.cam)
-  level_update(game.level)
 end
 
 function game.draw()
-  cls(1)
+  -- sky color:
+  cls(12)
+
+  -- draw entities:
   cam_draw(game.cam)
-  level_draw(game.level)
-  player_draw(game.player)
+    level_draw(game.level)
+    player_draw(game.player)
   camera()
 
-  -- debug
+  -- debug:
   cursor()
   color(6)
   print('cpu:'..stat(1))
-  print('xoffset:'..game.level.x_offset)
-  --print('camx:'..game.cam.pos.x)
-  -- map( celx, cely, sx, sy, celw, celh, [layer] )
-  --[[
-  local x_offset=32-game.player.pos.x
-  map(8, 0, x_offset/2, 0, 8, 8)
-  map(0, 0, 0, 0, 8, 8)
-  player_draw(game.player)
-  ]]
 end
--->8
--- player:
+
+-- player entity:
 
 function player(o)
   return {
@@ -70,14 +72,18 @@ function player(o)
     acc=vec3(),
     w=5,
     h=5,
-    speed=50, -- pixels per second
+
+    -- in pixels per second:
+    speed=50,
   }
 end
 
 function player_update(p)
-  -- update acc
+  -- grab inputs:
   local left=btn(button.left)
   local right=btn(button.right)
+
+  -- update acceleration:
   if left and not right then
     p.acc.x=-p.speed
   elseif not left and right then
@@ -86,64 +92,65 @@ function player_update(p)
     p.acc.x=0
   end
 
-  -- update vel
+  -- update velocity:
   p.vel=vec3_damp(p.vel,p.acc,0.001)
 
-  -- update pos
+  -- update position:
   p.pos=vec3_add(p.pos,vec3_mul(p.vel,1/60))
 end
 
 function player_draw(p)
   local x,y=vec3_to_screen_space(p.pos)
-  rectfill(x,y,x+p.w-1,y+p.h-1,7)
+  rectfill(
+    x,
+    y-p.h,
+    x+p.w-1,
+    y-1,
+    7)
 end
+
+-- camera entity:
 
 function cam(o)
   return {
-    player=assert(o.player~=nil) and o.player,
+    player=assert(o.player) and o.player,
     pos=vec3(),
   }
 end
 
 function cam_update(c)
+  -- player is always in center of screen:
   c.pos.x=c.player.pos.x-32
-  --[[
-  if c.pos.x<0 then
-    c.pos.x=0
-  end
-  if c.pos.x>64*2 then
-    c.pos.x=64*2
-  end
-  ]]
+
+  -- don't move camera past left bound:
+  if(c.pos.x<0)c.pos.x=0
 end
 
 function cam_draw(c)
-  -- camera(c.pos.x,0)
+  camera(c.pos.x,0)
 end
 
-function level(o)
+-- level entity:
+
+function level()
   return {
-    cam=assert(o.cam~=nil) and o.cam,
-    player=assert(o.player~=nil) and o.player,
   }
 end
 
 function level_update()
-  -- nothing to do here
+  assert(false, 'level is static for now, no update needed')
 end
 
-function level_draw(l)
+function level_draw()
   -- map( celx, cely, sx, sy, celw, celh, [layer] )
-  local center_x=0.5*64
-  local x_offset=center_x-l.player.pos.x
-  -- map(16, 0, -x_offset, 0, 8, 8)
-  line(center_x,0,center_x,64,7)
-  map(8, 0, x_offset, 0, 8, 8)
+
+  -- layer 2:
+  map(8, 0, 0, 0, 8, 8)
+
+  -- layer 1:
   map(0, 0, 0, 0, 8, 8)
-  l.x_offset=x_offset
-  --print('x_offset:'..x_offset)
 end
--->8
+
 -- utils:
 
 function transition(o)
@@ -162,9 +169,7 @@ function transition(o)
   o.to.init(o.prev_state)
  end
 
- -- transition.
  current_state.state=o.to
- -- printh('transition to:'..current_state.state.label)
  _update60=o.to.update
  _draw=o.to.draw
 end
@@ -175,10 +180,6 @@ function vec3(x,y,z)
   y=y or 0,
   z=z or 0,
  }
-end
-
-function vec3_to_screen_space(v)
-  return v.x, 64-v.y
 end
 
 button={
@@ -260,6 +261,10 @@ function vec3_mul(v,c)
   v.y*c,
   v.z*c
  )
+end
+
+function vec3_to_screen_space(v)
+  return v.x, 64-v.y
 end
 __gfx__
 000000006666666600000000ffffffff000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
