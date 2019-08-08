@@ -9,7 +9,6 @@ __lua__
   todo:
 
   [ ] parallax
-  [ ] cleanup for asserts
 
 ]]
 
@@ -99,15 +98,15 @@ function bullet_pool_draw(b)
   end
 end
 
-function bullet_pool_add(bpool, x, y, z, ax, ay, az)
+function bullet_pool_add(bpool, x, y, z, vx, vy, vz)
   -- construct bullet:
   local b=bullet()
   b.pos.x=x
   b.pos.y=y
   b.pos.z=z
-  b.acc.x=ax
-  b.acc.y=ay
-  b.acc.z=az
+  b.vel.x=vx
+  b.vel.y=vy
+  b.vel.z=vz
 
   -- add to pool:
   add(bpool.bullets,b)
@@ -121,7 +120,7 @@ function bullet(o)
     vel=vec3(),
     acc=vec3(),
     w=2,
-    h=2,
+    h=1,
   }
 end
 
@@ -192,21 +191,27 @@ function player_update(p)
     p.last_facing_dir='right'
   end
 
-  -- detect shots fired:
-  p.z_action_held=z_action
-
-  -- fire bullets:
-  if z_action then
+  if z_action and not p.z_action_held then
+    -- preconditions:
     assert(p.bullet_pool~=nil)
     assert(p.bullet_pool.bullets~=nil)
+
+    -- toggle state:
+    p.z_action_held=true
+
+    -- fire bullet:
+    local speed=200
     bullet_pool_add(
       p.bullet_pool,
       p.pos.x,
       p.pos.y+3,
       p.pos.z,
-      p.last_facing_dir=='left' and -5 or 5,
+      p.last_facing_dir=='left' and -speed or speed,
       0,
       0)
+  elseif not z_action then
+    -- toggle state off:
+    p.z_action_held=false
   end
 
   -- update velocity:
